@@ -55,6 +55,10 @@ class UsersFragment : ScreenFragment("Users"), Logging {
                     navigateToMessages(node)
                 }
 
+                R.id.web_browser -> {
+                    navigateToWebBrowser(node)
+                }
+
                 R.id.request_position -> {
                     model.requestPosition(node.num)
                 }
@@ -88,6 +92,12 @@ class UsersFragment : ScreenFragment("Users"), Logging {
                 }
             }
         }
+    }
+
+    private fun navigateToWebBrowser(node: NodeInfo) = node.user?.let { user ->
+        val contactKey = "${node.channel}${user.id}"
+        info("calling WebBrowserFragment filter: $contactKey")
+        parentFragmentManager.navigateToWebBrowser(contactKey, user.longName)
     }
 
     private fun navigateToMessages(node: NodeInfo) = node.user?.let { user ->

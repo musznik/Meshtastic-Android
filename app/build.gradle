@@ -267,6 +267,9 @@ dependencies {
     //detekt ktlint formatting
     detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.6")
 
+    implementation 'org.greenrobot:eventbus:3.3.1'
+
+
 }
 
 ksp {
