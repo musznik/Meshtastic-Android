@@ -264,7 +264,7 @@ class UIViewModel @Inject constructor(
         if (wpt.id != 0) sendDataPacket(p)
     }
 
-    private fun sendDataPacket(p: DataPacket) {
+    fun sendDataPacket(p: DataPacket) {
         try {
             meshService?.send(p)
         } catch (ex: RemoteException) {

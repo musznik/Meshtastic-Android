@@ -143,6 +143,7 @@
     <string name="bluetooth_disabled">Bluetooth wyłączony</string>
     <string name="permission_missing_31">Meshtastic potrzebuje uprawnień do lokalizacji, aby znaleźć i połączyć się z urządzeniami przez Bluetooth. Możesz je wyłączyć, gdy nie jest używany.</string>
     <string name="direct_message">Bezpośrednia wiadomość</string>
+    <string name="web_browser">Przeglądarka</string>
     <string name="nodedb_reset">NodeDB reset</string>
     <string name="nodedb_reset_description">To spowoduje usunięcie wszystkich węzłów z listy.</string>
     <string name="delivery_confirmed">Delivery confirmed</string>

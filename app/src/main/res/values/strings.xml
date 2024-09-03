@@ -166,6 +166,7 @@
     <string name="bluetooth_disabled">Bluetooth disabled</string>
     <string name="permission_missing_31">Meshtastic needs Nearby devices permission to find and connect to devices via Bluetooth. You can turn it off when not in use.</string>
     <string name="direct_message">Direct Message</string>
+    <string name="web_browser">Web Browser</string>
     <string name="nodedb_reset">NodeDB reset</string>
     <string name="nodedb_reset_description">This will clear all nodes from this list.</string>
     <string name="delivery_confirmed">Delivery confirmed</string>
@@ -216,4 +217,10 @@
     <string name="node_settings">Node settings</string>
     <string name="node_list">Node list</string>
     <string name="request_userinfo">Request user info</string>
+    <string name="wifi_qr_code_scan">Scan WiFi QR code</string>
+    <string name="wifi_qr_code_error">Invalid WiFi Credential QR code format</string>
+    <string name="processing">Processing</string>
+    <string name="connecting">Connecting</string>
+    <string name="reading">Reading</string>
+    <string name="of">of</string>
 </resources>
