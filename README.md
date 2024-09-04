@@ -31,6 +31,12 @@ If you encounter any problems or have questions, [post in the forum](https://mes
 
 However, if you must use 'raw' APKs you can get them from our [github releases](https://github.com/meshtastic/Meshtastic-Android/releases). This is not recommended because if you manually install an APK it will not automatically update.
 
+## Fork Features
+* Request User-Info for node - if your node is defined as "Unknown user", you can ask it to send its Long Name and Short Name
+* Last contact on map instead of last position
+* Web Browser for Node! (the server will be available soon)
+* Packet Counter for node!
+
 ## Translations
 
 You can help translate the app into your native language using [Crowdin](https://crowdin.meshtastic.org/android).
