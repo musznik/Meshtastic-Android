@@ -200,6 +200,7 @@ class MeshService : Service(), Logging {
                         time = (location.time / 1000).toInt()
                         groundSpeed = location.speed.toInt()
                         groundTrack = location.bearing.toInt()
+                        locationSource = MeshProtos.Position.LocSource.LOC_EXTERNAL
                     }
                 )
             }.launchIn(serviceScope)
@@ -428,6 +429,7 @@ class MeshService : Service(), Logging {
 
     private val configTotal by lazy { ConfigProtos.Config.getDescriptor().fields.size }
     private val moduleTotal by lazy { ModuleConfigProtos.ModuleConfig.getDescriptor().fields.size }
+    private var sessionPasskey: ByteString = ByteString.EMPTY
 
     private var localConfig: LocalConfig = LocalConfig.getDefaultInstance()
     private var moduleConfig: LocalModuleConfig = LocalModuleConfig.getDefaultInstance()
@@ -609,6 +611,7 @@ class MeshService : Service(), Logging {
         portnumValue = Portnums.PortNum.ADMIN_APP_VALUE
         payload = AdminProtos.AdminMessage.newBuilder().also {
             initFn(it)
+            it.sessionPasskey = sessionPasskey
         }.build().toByteString()
     }
 
@@ -831,7 +834,6 @@ class MeshService : Service(), Logging {
     }
 
     private fun handleReceivedAdmin(fromNodeNum: Int, a: AdminProtos.AdminMessage) {
-        // For the time being we only care about admin messages from our local node
         if (fromNodeNum == myNodeNum) {
             when (a.payloadVariantCase) {
                 AdminProtos.AdminMessage.PayloadVariantCase.GET_CONFIG_RESPONSE -> {
@@ -855,6 +857,9 @@ class MeshService : Service(), Logging {
                     warn("No special processing needed for ${a.payloadVariantCase}")
 
             }
+        } else {
+            debug("Admin: Received session_passkey from $fromNodeNum")
+            sessionPasskey = a.sessionPasskey
         }
     }
 
@@ -1442,7 +1447,6 @@ class MeshService : Service(), Logging {
         newNodes.add(info)
         radioConfigRepository.setStatusMessage("Nodes (${newNodes.size} / 100)")
     }
-
 
     private var rawMyNodeInfo: MeshProtos.MyNodeInfo? = null
     private var rawDeviceMetadata: MeshProtos.DeviceMetadata? = null
