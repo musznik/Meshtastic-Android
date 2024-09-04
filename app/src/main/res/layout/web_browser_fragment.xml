@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/toolbarBackground"
-        app:navigationIcon="?android:attr/homeAsUpIndicator"/>
+        app:navigationIcon="?android:attr/homeAsUpIndicator" />
 
     <!-- Layout na środku dla ProgressBar i TextView -->
     <LinearLayout
@@ -25,22 +25,61 @@
         android:gravity="center"
         android:visibility="gone">
 
-        <!-- Pasek postępu, aby wskazać postęp ładowania -->
-        <ProgressBar
-            android:id="@+id/progressBar"
+        <!-- Poziomy układ dla ProgressBar i Pionowy układ dla TextViews -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            style="@android:attr/progressBarStyleHorizontal"
-            android:layout_marginBottom="8dp" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-        <!-- TextView dla wyświetlania informacji o postępie -->
-        <TextView
-            android:id="@+id/progressText"
+            <!-- Pasek postępu, aby wskazać postęp ładowania -->
+            <ProgressBar
+                android:id="@+id/progressBar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                style="@android:attr/progressBarStyleHorizontal"
+                android:layout_marginRight="8dp" />
+
+            <!-- RelativeLayout dla wyśrodkowania TextView względem ProgressBar -->
+            <RelativeLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+
+                <!-- TextView dla wyświetlania informacji o postępie -->
+                <TextView
+                    android:id="@+id/progressText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Oczekiwanie na odpowiedź..."
+                    android:textSize="16sp"
+                    android:textColor="@android:color/black"
+                    android:layout_centerHorizontal="true" />
+
+                <!-- TextView dla wyświetlania dodatkowych informacji o postępie -->
+                <TextView
+                    android:id="@+id/progressTextSub"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textSize="16sp"
+                    android:textColor="@android:color/black"
+                    android:layout_below="@id/progressText"
+                    android:layout_centerHorizontal="true"
+                    android:visibility="gone"
+                    />
+
+            </RelativeLayout>
+
+        </LinearLayout>
+
+        <!-- Kontener na dynamicznie generowane wskaźniki segmentów -->
+        <LinearLayout
+            android:id="@+id/segmentIndicatorContainer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Oczekiwanie na odpowiedź..."
-            android:textSize="16sp"
-            android:textColor="@android:color/black" />
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp"
+            android:gravity="center" />
 
     </LinearLayout>
 

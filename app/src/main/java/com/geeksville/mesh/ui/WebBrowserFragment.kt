@@ -2,6 +2,8 @@ package com.geeksville.mesh.ui
 
 import WebBrowserViewModel
 import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -10,6 +12,8 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.ImageView
+import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
@@ -66,6 +70,12 @@ class WebBrowserFragment : Fragment(), Logging {
     private var lastSegmentReceivedTime: Long = System.currentTimeMillis()
     private var centralRetryJob: Job? = null
 
+    private var indexRequestStartTime: Long = 0L
+    private var indexRetryCount: Int = 0
+    private val maxRetryDuration: Long = 60_000 //1min
+    private val retryInterval: Long = 8_000
+    private lateinit var segmentIndicatorContainer: LinearLayout
+
 
     override fun onStart() {
         super.onStart()
@@ -104,8 +114,52 @@ class WebBrowserFragment : Fragment(), Logging {
         val contactName = arguments?.getString("contactName").orEmpty()
         binding.toolbar.title = contactName
 
+        segmentIndicatorContainer = binding.segmentIndicatorContainer
+
         setupWebView()
         requestIndexMd(contactKey)
+    }
+
+    private fun createSegmentIndicators(totalSegments: Int) {
+        segmentIndicatorContainer.removeAllViews()
+
+        for (i in 1..totalSegments) {
+            val indicator = ImageView(requireContext())
+            val size = 25
+
+            val scale = resources.displayMetrics.density
+            val params = LinearLayout.LayoutParams((size * scale).toInt(), (size * scale).toInt())
+            params.setMargins(4, 0, 4, 0)
+
+            indicator.layoutParams = params
+
+            val drawable = GradientDrawable()
+            drawable.shape = GradientDrawable.RECTANGLE
+            drawable.setStroke(2, Color.BLACK)
+            drawable.setColor(Color.WHITE)
+
+            indicator.setImageDrawable(drawable)
+
+            segmentIndicatorContainer.addView(indicator)
+        }
+    }
+
+    private fun clearSegmentIndicator() {
+        segmentIndicatorContainer.removeAllViews()
+    }
+
+    private fun updateSegmentIndicator(segmentNumber: Int) {
+        val indicator = segmentIndicatorContainer.getChildAt(segmentNumber - 1) as ImageView
+        val drawable = indicator.drawable as GradientDrawable
+        drawable.setColor(Color.BLACK)
+    }
+
+    private fun onReceivedTotalSegments(totalSegments: Int) {
+        createSegmentIndicators(totalSegments)
+    }
+
+    private fun onSegmentReceived(segmentNumber: Int) {
+        updateSegmentIndicator(segmentNumber)
     }
 
     private fun requestFile(fileName: String, contactKey: String) {
@@ -227,8 +281,11 @@ class WebBrowserFragment : Fragment(), Logging {
     private fun retryMissingSegments() {
         val missingSegments = (1..totalSegments).filter { it !in receivedSegments.keys }
         if (missingSegments.isNotEmpty()) {
-            debug("web: re-request segment: $missingSegments")
-            missingSegments.forEach { requestSegment(it) }
+            val segmentToRequest = missingSegments.first()
+            binding.progressTextSub.visibility=View.VISIBLE
+            binding.progressTextSub.text="ponawianie segmentu $segmentToRequest"
+            debug("web: re-requesting segment: $segmentToRequest")
+            requestSegment(segmentToRequest)
             startCentralTimeout()
         } else {
             isLoadingResources = false
@@ -244,6 +301,9 @@ class WebBrowserFragment : Fragment(), Logging {
         binding.progressBar.max = totalSegments
         binding.progressBar.progress = receivedSegments.size
         binding.progressText.text = "Segment ${receivedSegments.size} "+getString(R.string.of)+" $totalSegments"
+        binding.progressTextSub.text=""
+        binding.progressTextSub.visibility=View.GONE
+
     }
 
     private fun sendDataRequestForContactWithPayload(contactKey: String, data: String){
@@ -269,13 +329,62 @@ class WebBrowserFragment : Fragment(), Logging {
         model.sendDataPacket(dataPacket)
     }
 
+    private fun showError(message: String) {
+        binding.root.post {
+            binding.progressLayout.visibility = View.VISIBLE
+            binding.webView.visibility = View.VISIBLE
+            binding.progressBar.visibility = View.GONE
+            binding.progressText.text = message
+            binding.progressTextSub.text=""
+            binding.progressTextSub.visibility = View.GONE
+            debug("web: $message")
+        }
+    }
+
+    private fun startIndexRetryTimer() {
+        centralRetryJob?.cancel()
+        centralRetryJob = coroutineScope.launch {
+            var lastRequestTime = System.currentTimeMillis()
+            while (System.currentTimeMillis() - indexRequestStartTime < maxRetryDuration) {
+
+                if (receivedSegments.isEmpty() && (System.currentTimeMillis() - lastRequestTime >= retryInterval)) {
+                    indexRetryCount++
+
+                        if(indexRetryCount>0){
+                            binding.progressTextSub.text = "ponawianie nr " + (indexRetryCount).toString()
+                            debug("web: retrying index.md request, attempt: $indexRetryCount")
+                        }
+
+                    sendDataRequestForContactWithPayload(arguments?.getString("contactKey").orEmpty(), "r:$currentFileName")
+
+                    lastRequestTime = System.currentTimeMillis()
+                } else if (receivedSegments.isNotEmpty()) {
+                    binding.progressTextSub.text = ""
+                    binding.progressTextSub.visibility = View.GONE
+                    break
+                }
+
+                delay(retryInterval)
+            }
+
+            if (receivedSegments.isEmpty()) {
+                showError("Nie można pobrać indeksu, serwer nie odpowiedział")
+            }else{
+                binding.progressTextSub.text=""
+                binding.progressTextSub.visibility = View.GONE
+            }
+        }
+    }
+
     private fun requestIndexMd(contactKey: String) {
         val requestMessage = "r:$currentFileName"
         currentFileID = generateFileID(currentFileName)
-        sendDataRequestForContactWithPayload(contactKey,requestMessage)
         binding.progressLayout.visibility = View.VISIBLE
         receivedSegments.clear()
         currentSegment = 1
+        indexRequestStartTime = System.currentTimeMillis()
+
+        startIndexRetryTimer()
     }
 
     private fun decompressGzip(compressedData: ByteArray): ByteArray {
@@ -285,7 +394,12 @@ class WebBrowserFragment : Fragment(), Logging {
     }
 
     private fun completeLoading() {
-        val completeData = receivedSegments.toSortedMap().values.reduce { acc, bytes -> acc + bytes }
+        val completeData = if (receivedSegments.isNotEmpty()) {
+            receivedSegments.toSortedMap().values.reduce { acc, bytes -> acc + bytes }
+        } else {
+            ByteArray(0)
+        }
+
         binding.webView.settings.javaScriptEnabled = true
 
         debug("web: segment completed, received compressed data size: ${completeData.size} for file ${currentFileName}")
@@ -314,6 +428,7 @@ class WebBrowserFragment : Fragment(), Logging {
             binding.webView.post {
                 binding.webView.loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
             }
+            centralRetryJob?.cancel()
         }
 
         binding.progressLayout.visibility = View.GONE
@@ -341,6 +456,8 @@ class WebBrowserFragment : Fragment(), Logging {
             binding.progressBar.visibility = View.VISIBLE
             binding.progressBar.progress = 0
             binding.progressText.text = getString(R.string.connecting)
+            binding.progressTextSub.text=""
+            binding.progressTextSub.visibility = View.GONE
             debug("web: reset state for new file request")
         }
     }
@@ -365,6 +482,14 @@ class WebBrowserFragment : Fragment(), Logging {
 
                         if (totalSegments == 0) {
                             totalSegments = totalSegmentsReceived
+                            onReceivedTotalSegments(totalSegments)
+                        }
+
+                        onSegmentReceived(segmentNumber)
+
+                        if(receivedSegments.size == 1){
+                            binding.progressTextSub.text = ""
+                            binding.progressTextSub.visibility = View.GONE
                         }
 
                         if (segmentNumber in 1..totalSegments) {
@@ -387,7 +512,9 @@ class WebBrowserFragment : Fragment(), Logging {
                         updateProgressBar()
 
                         if (receivedSegments.size == totalSegments) {
+                            clearSegmentIndicator()
                             completeLoading()
+
                         } else {
                             startCentralTimeout()
                         }
