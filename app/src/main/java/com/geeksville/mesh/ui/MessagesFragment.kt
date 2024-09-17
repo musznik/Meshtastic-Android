@@ -22,9 +22,11 @@ import androidx.lifecycle.asLiveData
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.geeksville.mesh.DataPacket
 import com.geeksville.mesh.android.Logging
 import com.geeksville.mesh.R
 import com.geeksville.mesh.database.entity.QuickChatAction
+import com.geeksville.mesh.database.entity.toNodeInfo
 import com.geeksville.mesh.databinding.MessagesFragmentBinding
 import com.geeksville.mesh.model.Message
 import com.geeksville.mesh.model.UIViewModel
@@ -121,10 +123,12 @@ class MessagesFragment : Fragment(), Logging {
         contactKey = arguments?.getString("contactKey").toString()
         val contactName = arguments?.getString("contactName").toString()
         binding.toolbar.title = contactName
-        if (contactKey[1] == '!') {
+        val channelNumber = contactKey[0].digitToIntOrNull()
+        if (channelNumber == DataPacket.PKC_CHANNEL_INDEX) {
+            binding.toolbar.title = "$contactName🔒"
+        } else if (channelNumber != null && contactKey.substring(1) != DataPacket.ID_BROADCAST) {
             lifecycleScope.launch {
                 repeatOnLifecycle(Lifecycle.State.STARTED) {
-                    val channelNumber = contactKey[0].digitToInt()
                     model.channels.collect { channels ->
                         val channelName =
                             channels.getChannel(channelNumber)?.name ?: "Unknown Channel"
@@ -291,9 +295,9 @@ class MessagesFragment : Fragment(), Logging {
     }
 
     private fun openNodeInfo(msg: Message) = lifecycleScope.launch {
-        model.nodeList.firstOrNull()?.find { it.user?.id == msg.user.id }?.let { node ->
+        model.nodeList.firstOrNull()?.find { it.user.id == msg.user.id }?.let { node ->
             parentFragmentManager.popBackStack()
-            model.focusUserNode(node)
+            model.focusUserNode(node.toNodeInfo())
         }
     }
 }

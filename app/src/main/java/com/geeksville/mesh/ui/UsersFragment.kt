@@ -22,9 +22,12 @@ import androidx.compose.ui.unit.dp
 import androidx.fragment.app.activityViewModels
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.geeksville.mesh.DataPacket
 import com.geeksville.mesh.NodeInfo
 import com.geeksville.mesh.R
 import com.geeksville.mesh.android.Logging
+import com.geeksville.mesh.database.entity.NodeEntity
+import com.geeksville.mesh.database.entity.toNodeInfo
 import com.geeksville.mesh.model.UIViewModel
 import com.geeksville.mesh.ui.components.NodeFilterTextField
 import com.geeksville.mesh.ui.components.rememberTimeTickWithLifecycle
@@ -36,7 +39,7 @@ class UsersFragment : ScreenFragment("Users"), Logging {
 
     private val model: UIViewModel by activityViewModels()
 
-    private fun popup(node: NodeInfo) {
+    private fun popup(node: NodeEntity) {
         if (!model.isConnected()) return
         val isOurNode = node.num == model.myNodeNum
         val ignoreIncomingList = model.ignoreIncomingList
@@ -81,7 +84,7 @@ class UsersFragment : ScreenFragment("Users"), Logging {
                 }
 
                 R.id.remote_admin -> {
-                    navigateToRadioConfig(node)
+                    navigateToRadioConfig(node.num)
                 }
 
                 R.id.request_userinfo -> {
@@ -89,10 +92,17 @@ class UsersFragment : ScreenFragment("Users"), Logging {
                 }
 
                 R.id.metrics -> {
-                    navigateToMetrics(node)
+                    navigateToMetrics(node.num)
                 }
             }
         }
+    }
+
+    private fun navigateToMessages(node: NodeEntity) = node.user.let { user ->
+        val channel = if (user.publicKey.isEmpty) node.channel else DataPacket.PKC_CHANNEL_INDEX
+        val contactKey = "$channel${user.id}"
+        info("calling MessagesFragment filter: $contactKey")
+        parentFragmentManager.navigateToMessages(contactKey, user.longName)
     }
 
     private fun navigateToWebBrowser(node: NodeInfo) = node.user?.let { user ->
@@ -101,20 +111,14 @@ class UsersFragment : ScreenFragment("Users"), Logging {
         parentFragmentManager.navigateToWebBrowser(contactKey, user.longName)
     }
 
-    private fun navigateToMessages(node: NodeInfo) = node.user?.let { user ->
-        val contactKey = "${node.channel}${user.id}"
-        info("calling MessagesFragment filter: $contactKey")
-        parentFragmentManager.navigateToMessages(contactKey, user.longName)
+    private fun navigateToRadioConfig(nodeNum: Int) {
+        info("calling RadioConfig --> destNum: $nodeNum")
+        parentFragmentManager.navigateToRadioConfig(nodeNum)
     }
 
-    private fun navigateToRadioConfig(node: NodeInfo) {
-        info("calling RadioConfig --> destNum: ${node.num}")
-        parentFragmentManager.navigateToRadioConfig(node.num)
-    }
-
-    private fun navigateToMetrics(node: NodeInfo) {
-        info("calling Metrics --> destNum: ${node.num}")
-        parentFragmentManager.navigateToMetrics(node.num)
+    private fun navigateToMetrics(nodeNum: Int) {
+        info("calling Metrics --> destNum: $nodeNum")
+        parentFragmentManager.navigateToMetrics(nodeNum)
     }
 
 
@@ -138,7 +142,7 @@ class UsersFragment : ScreenFragment("Users"), Logging {
 @Composable
 fun NodesScreen(
     model: UIViewModel = hiltViewModel(),
-    chipClicked: (NodeInfo) -> Unit,
+    chipClicked: (NodeEntity) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
     val state by model.nodesUiState.collectAsStateWithLifecycle()
@@ -150,7 +154,7 @@ fun NodesScreen(
     val focusedNode by model.focusedNode.collectAsStateWithLifecycle()
     LaunchedEffect(focusedNode) {
         focusedNode?.let { node ->
-            val index = nodes.indexOfFirst { it == node }
+            val index = nodes.indexOfFirst { it.num == node.num }
             if (index != -1) {
                 listState.animateScrollToItem(index)
             }
@@ -181,9 +185,10 @@ fun NodesScreen(
         }
 
         items(nodes, key = { it.num }) { node ->
-            NodeInfo(
+            val nodeInfo = node.toNodeInfo()
+            NodeItem(
                 thisNodeInfo = ourNodeInfo,
-                thatNodeInfo = node,
+                thatNodeInfo = nodeInfo,
                 gpsFormat = state.gpsFormat,
                 distanceUnits = state.distanceUnits,
                 tempInFahrenheit = state.tempInFahrenheit,
@@ -192,9 +197,10 @@ fun NodesScreen(
                     focusManager.clearFocus()
                     chipClicked(node)
                 },
-                blinking = node == focusedNode,
+                blinking = nodeInfo == focusedNode,
                 expanded = state.showDetails,
-                currentTimeMillis = currentTimeMillis
+                currentTimeMillis = currentTimeMillis,
+                hasPublicKey = !node.user.publicKey.isEmpty
             )
         }
     }

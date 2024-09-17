@@ -16,6 +16,7 @@ import com.geeksville.mesh.database.dao.NodeInfoDao
 import com.geeksville.mesh.database.dao.QuickChatActionDao
 import com.geeksville.mesh.database.entity.ContactSettings
 import com.geeksville.mesh.database.entity.MeshLog
+import com.geeksville.mesh.database.entity.NodeEntity
 import com.geeksville.mesh.database.entity.Packet
 import com.geeksville.mesh.database.entity.QuickChatAction
 
@@ -23,6 +24,7 @@ import com.geeksville.mesh.database.entity.QuickChatAction
     entities = [
         MyNodeInfo::class,
         NodeInfo::class,
+        NodeEntity::class,
         Packet::class,
         ContactSettings::class,
         MeshLog::class,
@@ -35,6 +37,7 @@ import com.geeksville.mesh.database.entity.QuickChatAction
         AutoMigration (from = 6, to = 7),
         AutoMigration (from = 7, to = 8),
         AutoMigration (from = 8, to = 9),
+        AutoMigration (from = 9, to = 10),
     ],
     version = 10,
     exportSchema = true,

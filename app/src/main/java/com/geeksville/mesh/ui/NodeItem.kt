@@ -64,7 +64,7 @@ import com.geeksville.mesh.util.metersIn
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
-fun NodeInfo(
+fun NodeItem(
     thisNodeInfo: NodeInfo?,
     thatNodeInfo: NodeInfo,
     gpsFormat: Int,
@@ -75,17 +75,28 @@ fun NodeInfo(
     blinking: Boolean = false,
     expanded: Boolean = false,
     currentTimeMillis: Long,
+    hasPublicKey: Boolean = false,
 ) {
+    val isUnknownUser = thatNodeInfo.user?.hwModel == MeshProtos.HardwareModel.UNSET
     val unknownShortName = stringResource(id = R.string.unknown_node_short_name)
-    val unknownLongName = stringResource(id = R.string.unknown_username)
+    val longName = thatNodeInfo.user?.longName ?: stringResource(id = R.string.unknown_username)
 
-    val nodeName = thatNodeInfo.user?.longName ?: unknownLongName
+    val nodeName = if (hasPublicKey) "🔒 $longName" else longName
     val isThisNode = thisNodeInfo?.num == thatNodeInfo.num
     val distance = thisNodeInfo?.distanceStr(thatNodeInfo, distanceUnits)
     val (textColor, nodeColor) = thatNodeInfo.colors
 
     val position = thatNodeInfo.position
-    val hwInfoString = thatNodeInfo.user?.hwModelString
+    val hwInfoString = thatNodeInfo.user?.hwModelString ?: MeshProtos.HardwareModel.UNSET.name
+    val roleName =
+        if (isUnknownUser) {
+            DeviceConfig.Role.UNRECOGNIZED.name
+        } else {
+            thatNodeInfo.user?.role?.let { role ->
+                DeviceConfig.Role.forNumber(role)?.name
+            } ?: DeviceConfig.Role.UNRECOGNIZED.name
+        }
+    val nodeId = thatNodeInfo.user?.id ?: "???"
 
     val highlight = Color(0x33FFFFFF)
     val bgColor by animateColorAsState(
@@ -101,7 +112,7 @@ fun NodeInfo(
         label = "blinking node"
     )
 
-    val style = if (thatNodeInfo.user?.hwModel == MeshProtos.HardwareModel.UNSET) {
+    val style = if (isUnknownUser) {
         LocalTextStyle.current.copy(fontStyle = FontStyle.Italic)
     } else {
         LocalTextStyle.current
@@ -250,26 +261,25 @@ fun NodeInfo(
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            if (hwInfoString != null) {
-                                Text(
-                                    text = "$hwInfoString",
-                                    fontSize = MaterialTheme.typography.button.fontSize,
-                                    style = style,
-                                )
-                            }
-                            val role = thatNodeInfo.user?.role
-                            role?.let {
-                                Text(
-                                    text = DeviceConfig.Role.forNumber(it).name,
-                                    fontSize = MaterialTheme.typography.button.fontSize
-                                )
-                            }
-                            val nodeId = thatNodeInfo.user?.id
-                            if (nodeId != null) {
-                                Text(text = nodeId, fontSize = MaterialTheme.typography.button.fontSize)
-                            }
+                            Text(
+                                modifier = Modifier.weight(1f),
+                                text = hwInfoString,
+                                fontSize = MaterialTheme.typography.button.fontSize,
+                                style = style,
+                            )
+                            Text(
+                                modifier = Modifier.weight(1f),
+                                text = roleName,
+                                textAlign = TextAlign.Center,
+                                fontSize = MaterialTheme.typography.button.fontSize
+                            )
+                            Text(
+                                modifier = Modifier.weight(1f),
+                                text = nodeId,
+                                textAlign = TextAlign.End,
+                                fontSize = MaterialTheme.typography.button.fontSize
+                            )
                         }
                     }
                 }
@@ -284,7 +294,7 @@ fun NodeInfoSimplePreview() {
     AppTheme {
         val thisNodeInfo = NodeInfoPreviewParameterProvider().values.first()
         val thatNodeInfo = NodeInfoPreviewParameterProvider().values.last()
-        NodeInfo(
+        NodeItem(
             thisNodeInfo = thisNodeInfo,
             thatNodeInfo = thatNodeInfo,
             1,
@@ -311,7 +321,7 @@ fun NodeInfoPreview(
                 text = "Details Collapsed",
                 color = MaterialTheme.colors.onBackground
             )
-            NodeInfo(
+            NodeItem(
                 thisNodeInfo = thisNodeInfo,
                 thatNodeInfo = thatNodeInfo,
                 gpsFormat = 0,
@@ -324,7 +334,7 @@ fun NodeInfoPreview(
                 text = "Details Shown",
                 color = MaterialTheme.colors.onBackground
             )
-            NodeInfo(
+            NodeItem(
                 thisNodeInfo = thisNodeInfo,
                 thatNodeInfo = thatNodeInfo,
                 gpsFormat = 0,
