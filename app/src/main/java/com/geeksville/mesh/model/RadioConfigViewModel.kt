@@ -102,6 +102,15 @@ class RadioConfigViewModel @Inject constructor(
     val myNodeNum get() = myNodeInfo.value?.myNodeNum
     val maxChannels get() = myNodeInfo.value?.maxChannels ?: 8
 
+    val hasPaFan: Boolean
+        get() = destNode.value?.user?.hwModel in setOf(
+            null,
+            MeshProtos.HardwareModel.UNSET,
+            MeshProtos.HardwareModel.BETAFPV_2400_TX,
+            MeshProtos.HardwareModel.RADIOMASTER_900_BANDIT_NANO,
+            MeshProtos.HardwareModel.RADIOMASTER_900_BANDIT,
+        )
+
     override fun onCleared() {
         super.onCleared()
         debug("RadioConfigViewModel cleared")
@@ -262,15 +271,15 @@ class RadioConfigViewModel @Inject constructor(
         "Request NodeDB reset error"
     )
 
-    fun setFixedPosition(position: Position) {
+    fun setFixedPosition(destNum: Int, position: Position) {
         try {
-            meshService?.requestPosition(myNodeNum ?: return, position)
+            meshService?.setFixedPosition(destNum, position)
         } catch (ex: RemoteException) {
-            errormsg("Request position error: ${ex.message}")
+            errormsg("Set fixed position error: ${ex.message}")
         }
     }
 
-    fun removeFixedPosition() = setFixedPosition(Position(0.0, 0.0, 0))
+    fun removeFixedPosition(destNum: Int) = setFixedPosition(destNum, Position(0.0, 0.0, 0))
 
     // Set the radio config (also updates our saved copy in preferences)
     fun setConfig(config: ConfigProtos.Config) {

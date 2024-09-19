@@ -25,12 +25,14 @@ import com.geeksville.mesh.ui.components.PreferenceCategory
 import com.geeksville.mesh.ui.components.PreferenceFooter
 import com.geeksville.mesh.ui.components.SwitchPreference
 
+@Suppress("LongMethod")
 @Composable
 fun LoRaConfigItemList(
     loraConfig: LoRaConfig,
     primarySettings: ChannelSettings,
     enabled: Boolean,
     onSaveClicked: (LoRaConfig) -> Unit,
+    hasPaFan: Boolean = false,
 ) {
     val focusManager = LocalFocusManager.current
     var loraInput by rememberSaveable { mutableStateOf(loraConfig) }
@@ -184,14 +186,16 @@ fun LoRaConfigItemList(
                 onValueChanged = { loraInput = loraInput.copy { overrideFrequency = it } })
         }
 
-        item {
-            SwitchPreference(
-                title = "PA fan disabled",
-                checked = loraInput.paFanDisabled,
-                enabled = enabled,
-                onCheckedChange = { loraInput = loraInput.copy { paFanDisabled = it } })
+        if (hasPaFan) {
+            item {
+                SwitchPreference(
+                    title = "PA fan disabled",
+                    checked = loraInput.paFanDisabled,
+                    enabled = enabled,
+                    onCheckedChange = { loraInput = loraInput.copy { paFanDisabled = it } })
+            }
+            item { Divider() }
         }
-        item { Divider() }
 
         item {
             SwitchPreference(title = "Ignore MQTT",
