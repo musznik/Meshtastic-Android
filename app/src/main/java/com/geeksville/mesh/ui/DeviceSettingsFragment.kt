@@ -57,6 +57,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.geeksville.mesh.NodeInfo
+import com.geeksville.mesh.Position
 import com.geeksville.mesh.R
 import com.geeksville.mesh.android.Logging
 import com.geeksville.mesh.config
@@ -162,6 +163,14 @@ class DeviceSettingsFragment : ScreenFragment("Radio Configuration"), Logging {
     }
 }
 
+enum class AdminRoute(@StringRes val title: Int) {
+    REBOOT(R.string.reboot),
+    SHUTDOWN(R.string.shutdown),
+    FACTORY_RESET(R.string.factory_reset),
+    NODEDB_RESET(R.string.nodedb_reset),
+    ;
+}
+
 // Config (configType = AdminProtos.AdminMessage.ConfigType)
 enum class ConfigRoute(val title: String, val configType: Int = 0) {
     USER("User"),
@@ -196,6 +205,7 @@ enum class ModuleRoute(val title: String, val configType: Int = 0) {
 }
 
 private fun getName(route: Any): String = when (route) {
+    is AdminRoute -> route.name
     is ConfigRoute -> route.name
     is ModuleRoute -> route.name
     else -> ""
@@ -303,8 +313,11 @@ fun RadioConfigNavHost(
         },
         onComplete = {
             val route = radioConfigState.route
-            if (route.isNotEmpty()) navController.navigate(route)
-            viewModel.clearPacketResponse()
+            if (ConfigRoute.entries.any { it.name == route } ||
+                ModuleRoute.entries.any { it.name == route }) {
+                navController.navigate(route)
+                viewModel.clearPacketResponse()
+            }
         }
     )
 
@@ -345,20 +358,8 @@ fun RadioConfigNavHost(
                             showEditDeviceProfileDialog = true
                         }
 
-                        "REBOOT" -> {
-                            viewModel.requestReboot(destNum)
-                        }
-
-                        "SHUTDOWN" -> {
-                            viewModel.requestShutdown(destNum)
-                        }
-
-                        "FACTORY_RESET" -> {
-                            viewModel.requestFactoryReset(destNum)
-                        }
-
-                        "NODEDB_RESET" -> {
-                            viewModel.requestNodedbReset(destNum)
+                        is AdminRoute -> {
+                            viewModel.getSessionPasskey(destNum)
                         }
 
                         is ConfigRoute -> {
@@ -413,12 +414,12 @@ fun RadioConfigNavHost(
         }
         composable(ConfigRoute.POSITION.name) {
             PositionConfigItemList(
-                location = node?.position,
+                location = node?.position ?: Position(0.0, 0.0, 0),
                 positionConfig = radioConfigState.radioConfig.position,
                 enabled = connected,
                 onSaveClicked = { locationInput, positionInput ->
                     if (positionInput.fixedPosition) {
-                        if (locationInput != null && locationInput != node?.position) {
+                        if (locationInput != node?.position) {
                             viewModel.setFixedPosition(destNum, locationInput)
                         }
                     } else {
@@ -752,10 +753,7 @@ private fun RadioSettingsScreen(
             item { NavCard("Export configuration", enabled = enabled) { onRouteClick("EXPORT") } }
         }
 
-        item { NavButton(R.string.reboot, enabled) { onRouteClick("REBOOT") } }
-        item { NavButton(R.string.shutdown, enabled) { onRouteClick("SHUTDOWN") } }
-        item { NavButton(R.string.factory_reset, enabled) { onRouteClick("FACTORY_RESET") } }
-        item { NavButton(R.string.nodedb_reset, enabled) { onRouteClick("NODEDB_RESET") } }
+        items(AdminRoute.entries) { NavButton(it.title, enabled) { onRouteClick(it) } }
     }
 }
 
