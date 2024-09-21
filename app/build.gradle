@@ -189,11 +189,12 @@ dependencies {
     androidTestImplementation "androidx.navigation:navigation-testing:$nav_version"
 
     // Compose
-    def composeBom = platform('androidx.compose:compose-bom:2024.09.00')
+    def composeBom = platform('androidx.compose:compose-bom:2024.09.02')
     implementation composeBom
     androidTestImplementation composeBom
 
     implementation 'androidx.compose.material:material'
+    implementation 'androidx.compose.material:material-icons-extended'
     implementation 'androidx.activity:activity-compose'
     implementation 'androidx.compose.runtime:runtime-livedata'
     implementation "com.google.accompanist:accompanist-themeadapter-appcompat:0.36.0"
