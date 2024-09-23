@@ -14,6 +14,7 @@ import com.geeksville.mesh.Position
 import com.geeksville.mesh.TelemetryProtos
 import com.geeksville.mesh.copy
 import com.geeksville.mesh.util.latLongToMeter
+import com.google.protobuf.ByteString
 
 @Suppress("MagicNumber")
 @Entity(tableName = "nodes")
@@ -78,6 +79,10 @@ data class NodeEntity(
             val brightness = ((r * 0.299) + (g * 0.587) + (b * 0.114)) / 255
             return (if (brightness > 0.5) Color.BLACK else Color.WHITE) to Color.rgb(r, g, b)
         }
+
+    val hasPKC get() = !user.publicKey.isEmpty
+    val errorByteString: ByteString get() = ByteString.copyFrom(ByteArray(32) { 0 })
+    val mismatchKey get() = user.publicKey == errorByteString
 
     val batteryLevel get() = deviceMetrics.batteryLevel
     val voltage get() = deviceMetrics.voltage
