@@ -30,7 +30,6 @@ import com.geeksville.mesh.model.DeviceVersion
 import com.geeksville.mesh.repository.datastore.RadioConfigRepository
 import com.geeksville.mesh.repository.location.LocationRepository
 import com.geeksville.mesh.repository.network.MQTTRepository
-import com.geeksville.mesh.repository.radio.BluetoothInterface
 import com.geeksville.mesh.repository.radio.RadioInterfaceService
 import com.geeksville.mesh.repository.radio.RadioServiceConnectionState
 import com.geeksville.mesh.util.*
@@ -1688,8 +1687,6 @@ class MeshService : Service(), Logging {
         newNodes.clear()
         newMyNodeInfo = null
 
-        if (BluetoothInterface.invalidVersion) onHasSettings() // Device firmware is too old
-
         debug("Starting config nonce=$configNonce")
 
         sendToRadio(ToRadio.newBuilder().apply {
@@ -2019,6 +2016,18 @@ class MeshService : Service(), Logging {
             }
         }
 
+        override fun requestUserInfo( destNum: Int ) = toRemoteExceptions {
+            if (destNum != myNodeNum) {
+                sendToRadio(newMeshPacketTo(destNum
+                ).buildMeshPacket(
+                    channel = nodeDBbyNodeNum[destNum]?.channel ?: 0
+                ) {
+                    portnumValue = Portnums.PortNum.NODEINFO_APP_VALUE
+                    wantResponse = true
+                    payload = nodeDBbyNodeNum[myNodeNum]!!.user.toByteString()
+                })
+            }
+        }
         override fun requestPosition(destNum: Int, position: Position) = toRemoteExceptions {
             sendToRadio(newMeshPacketTo(destNum).buildMeshPacket(
                 channel = nodeDBbyNodeNum[destNum]?.channel ?: 0,
