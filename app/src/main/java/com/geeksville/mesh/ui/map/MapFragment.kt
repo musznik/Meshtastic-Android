@@ -19,6 +19,7 @@ import androidx.compose.material.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -85,6 +86,7 @@ import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.gridlines.LatLonGridlineOverlay2
 import org.osmdroid.views.overlay.infowindow.InfoWindow
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
+import com.geeksville.mesh.model.map.clustering.RadiusMarkerClusterer
 import java.io.File
 import java.text.DateFormat
 
@@ -112,11 +114,17 @@ class MapFragment : ScreenFragment("Map Fragment"), Logging {
 @Composable
 private fun MapView.UpdateMarkers(
     nodeMarkers: List<MarkerWithLabel>,
-    waypointMarkers: List<MarkerWithLabel>
+    waypointMarkers: List<MarkerWithLabel>,
+    nodeClusterer: RadiusMarkerClusterer
 ) {
     debug("Showing on map: ${nodeMarkers.size} nodes ${waypointMarkers.size} waypoints")
     overlays.removeAll { it is MarkerWithLabel }
-    overlays.addAll(nodeMarkers + waypointMarkers)
+    // overlays.addAll(nodeMarkers + waypointMarkers)
+    overlays.addAll(waypointMarkers)
+    nodeClusterer.getItems().clear()
+    nodeMarkers.forEach {
+        nodeClusterer.add(it)
+    }
 }
 
 /**
@@ -254,6 +262,8 @@ private fun MapView.addMapEventListener(onEvent: () -> Unit) {
     }, INACTIVITY_DELAY_MILLIS))
 }
 
+private const val MaxZoomLevel = 20.0
+
 @Composable
 fun MapView(
     model: UIViewModel = viewModel(),
@@ -265,8 +275,8 @@ fun MapView(
     val prefsName = "org.geeksville.osm.prefs"
     val mapStyleId = "map_style_id"
 
-    var zoomLevelMin = 0.0
-    var zoomLevelMax = 0.0
+    var zoomLevelMin by remember { mutableDoubleStateOf(0.0) }
+    var zoomLevelMax by remember { mutableDoubleStateOf(0.0) }
 
     // Map Elements
     var downloadRegionBoundingBox: BoundingBox? by remember { mutableStateOf(null) }
@@ -282,6 +292,8 @@ fun MapView(
 
     val map = rememberMapViewWithLifecycle(context)
     val state by model.mapState.collectAsStateWithLifecycle()
+
+    val nodeClusterer = remember { RadiusMarkerClusterer(context) }
 
     fun MapView.toggleMyLocation() {
         if (context.gpsDisabled()) {
@@ -479,6 +491,8 @@ fun MapView(
         if (myLocationOverlay != null && overlays.none { it is MyLocationNewOverlay }) {
             overlays.add(myLocationOverlay)
         }
+        map.overlays.add(nodeClusterer)
+
         addCopyright()  // Copyright is required for certain map sources
         createLatLongGrid(false)
 
@@ -486,7 +500,7 @@ fun MapView(
     }
 
     with(map) {
-        UpdateMarkers(onNodesChanged(nodes), onWaypointChanged(waypoints.values))
+        UpdateMarkers(onNodesChanged(nodes), onWaypointChanged(waypoints.values), nodeClusterer)
     }
 
     fun MapView.zoomToNodes() {
@@ -507,7 +521,7 @@ fun MapView(
         val id = mPrefs.getInt(mapStyleId, 0)
         debug("mapStyleId from prefs: $id")
         return CustomTileSource.getTileSource(id).also {
-            map.maxZoomLevel = it.maximumZoomLevel.toDouble()
+            zoomLevelMax = it.maximumZoomLevel.toDouble()
             showDownloadButton =
                 if (it is OnlineTileSourceBase) it.tileSourcePolicy.acceptsBulkDownload() else false
         }
@@ -519,8 +533,7 @@ fun MapView(
     fun MapView.generateBoxOverlay() {
         overlays.removeAll { it is Polygon }
         val zoomFactor = 1.3 // zoom difference between view and download area polygon
-        zoomLevelMax = maxZoomLevel
-        zoomLevelMin = maxOf(zoomLevelDouble, maxZoomLevel)
+        zoomLevelMin = minOf(zoomLevelDouble, zoomLevelMax)
         downloadRegionBoundingBox = boundingBox.zoomIn(zoomFactor)
         val polygon = Polygon().apply {
             points = Polygon.pointsAsRect(downloadRegionBoundingBox).map {
@@ -535,6 +548,17 @@ fun MapView(
             zoomLevelMax.toInt(),
         )
         cacheEstimate = context.getString(R.string.map_cache_tiles, tileCount)
+    }
+
+    val boxOverlayListener = object : MapListener {
+        override fun onScroll(event: ScrollEvent): Boolean {
+            map.generateBoxOverlay()
+            return true
+        }
+
+        override fun onZoom(event: ZoomEvent): Boolean {
+            return false
+        }
     }
 
     fun startDownload() {
@@ -602,6 +626,7 @@ fun MapView(
                     0 -> showCurrentCacheInfo = true
                     1 -> {
                         map.generateBoxOverlay()
+                        map.addMapListener(boxOverlayListener)
                         dialog.dismiss()
                     }
 
@@ -641,10 +666,11 @@ fun MapView(
                         isTilesScaledToDpi = true
                         // sets the minimum zoom level (the furthest out you can zoom)
                         minZoomLevel = 1.5
+                        maxZoomLevel = MaxZoomLevel
                         // Disables default +/- button for zooming
                         zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
                         addMapEventListener {
-                            model.updateMapCenterAndZoom(map.projection.currentCenter, map.zoomLevelDouble)
+                            model.updateMapCenterAndZoom(projection.currentCenter, zoomLevelDouble)
                         }
                         zoomToNodes()
                     }
@@ -656,6 +682,7 @@ fun MapView(
                 cacheEstimate = cacheEstimate,
                 onExecuteJob = { startDownload() },
                 onCancelDownload = {
+                    map.removeMapListener(boxOverlayListener)
                     downloadRegionBoundingBox = null
                     map.overlays.removeAll { it is Polygon }
                     map.invalidate()
